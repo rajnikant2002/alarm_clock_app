@@ -1,20 +1,23 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../services/firebase_service.dart';
+
 class AuthProvider extends ChangeNotifier {
-  AuthProvider() {
-    _auth.authStateChanges().listen((user) {
+  AuthProvider(this._firebaseService) {
+    _firebaseService.authStateChanges.listen((user) {
       _user = user;
       notifyListeners();
     });
   }
 
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseService _firebaseService;
 
   User? _user;
   bool _isLoading = false;
 
   bool get isLoggedIn => _user != null;
+  String? get currentUserId => _user?.uid;
   String? get currentUserEmail => _user?.email;
   bool get isLoading => _isLoading;
 
@@ -28,23 +31,9 @@ class AuthProvider extends ChangeNotifier {
       return 'Password must be at least 6 characters.';
     }
 
-    _isLoading = true;
-    notifyListeners();
-
-    try {
-      await _auth.createUserWithEmailAndPassword(
-        email: trimmedEmail,
-        password: password,
-      );
-      return null;
-    } on FirebaseAuthException catch (e) {
-      return _mapAuthError(e);
-    } catch (_) {
-      return 'Something went wrong. Please try again.';
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
+    return _runAuth(
+      () => _firebaseService.signUp(email: trimmedEmail, password: password),
+    );
   }
 
   Future<String?> login(String email, String password) async {
@@ -54,14 +43,19 @@ class AuthProvider extends ChangeNotifier {
       return 'Email and password are required.';
     }
 
+    return _runAuth(
+      () => _firebaseService.signIn(email: trimmedEmail, password: password),
+    );
+  }
+
+  Future<void> logout() => _firebaseService.signOut();
+
+  Future<String?> _runAuth(Future<UserCredential> Function() action) async {
     _isLoading = true;
     notifyListeners();
 
     try {
-      await _auth.signInWithEmailAndPassword(
-        email: trimmedEmail,
-        password: password,
-      );
+      await action();
       return null;
     } on FirebaseAuthException catch (e) {
       return _mapAuthError(e);
@@ -71,10 +65,6 @@ class AuthProvider extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     }
-  }
-
-  Future<void> logout() async {
-    await _auth.signOut();
   }
 
   String _mapAuthError(FirebaseAuthException e) {

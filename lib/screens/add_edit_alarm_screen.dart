@@ -1,12 +1,15 @@
 import 'package:alarm_clock_app/models/alarm.dart';
 import 'package:alarm_clock_app/providers/alarm_provider.dart';
+import 'package:alarm_clock_app/providers/auth_provider.dart';
 import 'package:alarm_clock_app/theme/app_theme.dart';
 import 'package:alarm_clock_app/widgets/gradient_background.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 class AddEditAlarmScreen extends StatefulWidget {
-  const AddEditAlarmScreen({super.key});
+  const AddEditAlarmScreen({super.key, this.alarm});
+
+  final Alarm? alarm;
 
   @override
   State<AddEditAlarmScreen> createState() => _AddEditAlarmScreenState();
@@ -14,7 +17,22 @@ class AddEditAlarmScreen extends StatefulWidget {
 
 class _AddEditAlarmScreenState extends State<AddEditAlarmScreen> {
   final TextEditingController labelController = TextEditingController();
-  TimeOfDay? selectedTime;
+  late TimeOfDay selectedTime;
+  bool get _isEditing => widget.alarm != null;
+
+  @override
+  void initState() {
+    super.initState();
+    if (_isEditing) {
+      selectedTime = TimeOfDay(
+        hour: widget.alarm!.hour,
+        minute: widget.alarm!.minute,
+      );
+      labelController.text = widget.alarm!.label;
+    } else {
+      selectedTime = TimeOfDay.now();
+    }
+  }
 
   @override
   void dispose() {
@@ -25,7 +43,7 @@ class _AddEditAlarmScreenState extends State<AddEditAlarmScreen> {
   Future<void> pickTime() async {
     final picked = await showTimePicker(
       context: context,
-      initialTime: selectedTime ?? TimeOfDay.now(),
+      initialTime: selectedTime,
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
@@ -46,25 +64,54 @@ class _AddEditAlarmScreenState extends State<AddEditAlarmScreen> {
     }
   }
 
-  void _saveAlarm() {
-    if (selectedTime == null || labelController.text.trim().isEmpty) {
+  Future<void> _saveAlarm() async {
+    final label = labelController.text.trim();
+    if (label.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a label and select a time')),
+        const SnackBar(content: Text('Please enter an alarm label')),
       );
       return;
     }
 
-    final alarm = Alarm(
-      label: labelController.text.trim(),
-      time: selectedTime!.format(context),
-    );
+    final uid = context.read<AuthProvider>().currentUserId;
+    if (uid == null) return;
 
-    context.read<AlarmProvider>().addAlarm(alarm);
+    final provider = context.read<AlarmProvider>();
+    final String? error;
+
+    if (_isEditing) {
+      error = await provider.updateAlarm(
+        uid: uid,
+        alarm: widget.alarm!,
+        label: label,
+        hour: selectedTime.hour,
+        minute: selectedTime.minute,
+      );
+    } else {
+      error = await provider.addAlarm(
+        uid: uid,
+        label: label,
+        hour: selectedTime.hour,
+        minute: selectedTime.minute,
+      );
+    }
+
+    if (!mounted) return;
+
+    if (error != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error)),
+      );
+      return;
+    }
+
     Navigator.pop(context);
   }
 
   @override
   Widget build(BuildContext context) {
+    final isSaving = context.watch<AlarmProvider>().isSaving;
+
     return Scaffold(
       body: GradientBackground(
         child: SafeArea(
@@ -78,9 +125,9 @@ class _AddEditAlarmScreenState extends State<AddEditAlarmScreen> {
                       onPressed: () => Navigator.pop(context),
                       icon: const Icon(Icons.close_rounded),
                     ),
-                    const Text(
-                      'New Alarm',
-                      style: TextStyle(
+                    Text(
+                      _isEditing ? 'Edit Alarm' : 'New Alarm',
+                      style: const TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w600,
                       ),
@@ -123,23 +170,17 @@ class _AddEditAlarmScreenState extends State<AddEditAlarmScreen> {
                               ),
                               const SizedBox(height: 12),
                               Text(
-                                selectedTime == null
-                                    ? '--:--'
-                                    : selectedTime!.format(context),
-                                style: TextStyle(
+                                selectedTime.format(context),
+                                style: const TextStyle(
                                   fontSize: 56,
                                   fontWeight: FontWeight.w200,
                                   letterSpacing: 2,
-                                  color: selectedTime == null
-                                      ? AppColors.textSecondary
-                                      : AppColors.textPrimary,
+                                  color: AppColors.textPrimary,
                                 ),
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                selectedTime == null
-                                    ? 'Tap to set time'
-                                    : 'Tap to change',
+                                'Tap to change time',
                                 style: TextStyle(
                                   color: AppColors.textSecondary,
                                   fontSize: 14,
@@ -170,9 +211,17 @@ class _AddEditAlarmScreenState extends State<AddEditAlarmScreen> {
                       ),
                       const SizedBox(height: 40),
                       ElevatedButton.icon(
-                        onPressed: _saveAlarm,
-                        icon: const Icon(Icons.check_rounded),
-                        label: const Text('Save Alarm'),
+                        onPressed: isSaving ? null : _saveAlarm,
+                        icon: isSaving
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.check_rounded),
+                        label: Text(_isEditing ? 'Update Alarm' : 'Save Alarm'),
                       ),
                     ],
                   ),

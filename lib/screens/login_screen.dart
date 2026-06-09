@@ -1,5 +1,5 @@
 import 'package:alarm_clock_app/providers/auth_provider.dart';
-import 'package:alarm_clock_app/screens/signup_screen.dart';
+import 'package:alarm_clock_app/screens/register_screen.dart';
 import 'package:alarm_clock_app/theme/app_theme.dart';
 import 'package:alarm_clock_app/widgets/auth_text_field.dart';
 import 'package:alarm_clock_app/widgets/gradient_background.dart';
@@ -178,7 +178,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (_) => const SignupScreen(),
+                                builder: (_) => const RegisterScreen(),
                               ),
                             );
                           },

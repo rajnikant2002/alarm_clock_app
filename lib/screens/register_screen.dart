@@ -5,14 +5,14 @@ import 'package:alarm_clock_app/widgets/gradient_background.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-class SignupScreen extends StatefulWidget {
-  const SignupScreen({super.key});
+class RegisterScreen extends StatefulWidget {
+  const RegisterScreen({super.key});
 
   @override
-  State<SignupScreen> createState() => _SignupScreenState();
+  State<RegisterScreen> createState() => _RegisterScreenState();
 }
 
-class _SignupScreenState extends State<SignupScreen> {
+class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -28,7 +28,7 @@ class _SignupScreenState extends State<SignupScreen> {
     super.dispose();
   }
 
-  Future<void> _signUp() async {
+  Future<void> _register() async {
     if (!_formKey.currentState!.validate()) return;
 
     final auth = context.read<AuthProvider>();
@@ -80,7 +80,7 @@ class _SignupScreenState extends State<SignupScreen> {
                       icon: const Icon(Icons.arrow_back_rounded),
                     ),
                     const Text(
-                      'Create Account',
+                      'Register',
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w600,
@@ -115,7 +115,7 @@ class _SignupScreenState extends State<SignupScreen> {
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Text(
-                                  'Join WakeUp and never miss an important moment.',
+                                  'Create an account to sync alarms across devices.',
                                   style: TextStyle(
                                     color: AppColors.textSecondary,
                                     height: 1.4,
@@ -186,7 +186,7 @@ class _SignupScreenState extends State<SignupScreen> {
                         ),
                         const SizedBox(height: 32),
                         ElevatedButton(
-                          onPressed: isLoading ? null : _signUp,
+                          onPressed: isLoading ? null : _register,
                           child: isLoading
                               ? const SizedBox(
                                   height: 20,
@@ -195,7 +195,7 @@ class _SignupScreenState extends State<SignupScreen> {
                                     strokeWidth: 2,
                                   ),
                                 )
-                              : const Text('Create Account'),
+                              : const Text('Register'),
                         ),
                       ],
                     ),

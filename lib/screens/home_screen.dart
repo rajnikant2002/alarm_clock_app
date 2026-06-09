@@ -2,13 +2,30 @@ import 'package:alarm_clock_app/providers/alarm_provider.dart';
 import 'package:alarm_clock_app/providers/auth_provider.dart';
 import 'package:alarm_clock_app/screens/add_edit_alarm_screen.dart';
 import 'package:alarm_clock_app/theme/app_theme.dart';
-import 'package:alarm_clock_app/widgets/alarm_card.dart';
+import 'package:alarm_clock_app/widgets/alarm_tile.dart';
 import 'package:alarm_clock_app/widgets/gradient_background.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final uid = context.read<AuthProvider>().currentUserId;
+      if (uid != null) {
+        context.read<AlarmProvider>().listenToAlarms(uid, force: true);
+      }
+    });
+  }
 
   String _greeting() {
     final hour = DateTime.now().hour;
@@ -17,9 +34,46 @@ class HomeScreen extends StatelessWidget {
     return 'Good Evening';
   }
 
+  Future<void> _confirmDelete(BuildContext context, String alarmId) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete alarm?'),
+        content: const Text('This alarm will be permanently removed.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !context.mounted) return;
+
+    final uid = context.read<AuthProvider>().currentUserId;
+    if (uid == null) return;
+
+    final error = await context.read<AlarmProvider>().deleteAlarm(
+      uid: uid,
+      alarmId: alarmId,
+    );
+
+    if (error != null && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error)),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final email = context.watch<AuthProvider>().currentUserEmail ?? '';
+    final uid = context.watch<AuthProvider>().currentUserId;
 
     return Scaffold(
       body: GradientBackground(
@@ -54,7 +108,10 @@ class HomeScreen extends StatelessWidget {
                       ),
                     ),
                     IconButton(
-                      onPressed: () => context.read<AuthProvider>().logout(),
+                      onPressed: () async {
+                        context.read<AlarmProvider>().clear();
+                        await context.read<AuthProvider>().logout();
+                      },
                       style: IconButton.styleFrom(
                         backgroundColor: AppColors.surface,
                       ),
@@ -106,6 +163,34 @@ class HomeScreen extends StatelessWidget {
               Expanded(
                 child: Consumer<AlarmProvider>(
                   builder: (context, provider, _) {
+                    if (provider.isLoading) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+
+                    if (provider.errorMessage != null && provider.alarms.isEmpty) {
+                      return Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(32),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(
+                                Icons.cloud_off_rounded,
+                                size: 48,
+                                color: AppColors.error,
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                provider.errorMessage!,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(fontSize: 16),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }
+
                     if (provider.alarms.isEmpty) {
                       return Center(
                         child: Column(
@@ -154,14 +239,32 @@ class HomeScreen extends StatelessWidget {
                       itemCount: provider.alarms.length,
                       itemBuilder: (context, index) {
                         final alarm = provider.alarms[index];
-                        return AlarmCard(
+                        return AlarmTile(
                           alarm: alarm,
-                          onToggle: (value) {
-                            provider.toggleAlarm(index, value);
+                          timeLabel: alarm.formattedTime(context),
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    AddEditAlarmScreen(alarm: alarm),
+                              ),
+                            );
                           },
-                          onDelete: () {
-                            provider.deleteAlarm(index);
+                          onToggle: (value) async {
+                            if (uid == null) return;
+                            final error = await provider.toggleAlarm(
+                              uid: uid,
+                              alarmId: alarm.id,
+                              isEnabled: value,
+                            );
+                            if (error != null && context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text(error)),
+                              );
+                            }
                           },
+                          onDelete: () => _confirmDelete(context, alarm.id),
                         );
                       },
                     );
