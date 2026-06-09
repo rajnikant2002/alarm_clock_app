@@ -2,6 +2,7 @@ import 'package:alarm_clock_app/providers/alarm_provider.dart';
 import 'package:alarm_clock_app/providers/auth_provider.dart';
 import 'package:alarm_clock_app/screens/home_screen.dart';
 import 'package:alarm_clock_app/screens/login_screen.dart';
+import 'package:alarm_clock_app/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -20,7 +21,9 @@ class AlarmClockApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AlarmProvider()),
       ],
       child: MaterialApp(
+        title: 'Alarm Clock',
         debugShowCheckedModeBanner: false,
+        theme: AppTheme.darkTheme,
         home: const AuthGate(),
       ),
     );
