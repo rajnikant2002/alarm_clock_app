@@ -77,23 +77,27 @@ class _AddEditAlarmScreenState extends State<AddEditAlarmScreen> {
     if (uid == null) return;
 
     final provider = context.read<AlarmProvider>();
-    final String? error;
+    String? error;
 
-    if (_isEditing) {
-      error = await provider.updateAlarm(
-        uid: uid,
-        alarm: widget.alarm!,
-        label: label,
-        hour: selectedTime.hour,
-        minute: selectedTime.minute,
-      );
-    } else {
-      error = await provider.addAlarm(
-        uid: uid,
-        label: label,
-        hour: selectedTime.hour,
-        minute: selectedTime.minute,
-      );
+    try {
+      if (_isEditing) {
+        error = await provider.updateAlarm(
+          uid: uid,
+          alarm: widget.alarm!,
+          label: label,
+          hour: selectedTime.hour,
+          minute: selectedTime.minute,
+        );
+      } else {
+        error = await provider.addAlarm(
+          uid: uid,
+          label: label,
+          hour: selectedTime.hour,
+          minute: selectedTime.minute,
+        );
+      }
+    } catch (e) {
+      error = 'Failed to save alarm. Please try again.';
     }
 
     if (!mounted) return;

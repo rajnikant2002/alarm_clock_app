@@ -20,6 +20,7 @@ class AlarmProvider extends ChangeNotifier {
   final NotificationService _notificationService;
 
   final List<Alarm> _alarms = [];
+  final Map<String, Alarm> _pendingUpdates = {};
   StreamSubscription<List<Alarm>>? _subscription;
   String? _listeningUid;
   bool _isLoading = false;
@@ -50,15 +51,16 @@ class AlarmProvider extends ChangeNotifier {
 
     _subscription = _firebaseService.watchAlarms(uid).listen(
       (alarms) async {
+        final merged = _mergeWithPendingUpdates(alarms);
         _alarms
           ..clear()
-          ..addAll(alarms);
+          ..addAll(merged);
         _isLoading = false;
         _errorMessage = null;
         notifyListeners();
 
-        await _localStorageService.cacheAlarms(uid, alarms);
-        await _notificationService.syncAlarms(alarms);
+        await _localStorageService.cacheAlarms(uid, merged);
+        await _syncNotifications(merged);
       },
       onError: (Object error) async {
         _subscription?.cancel();
@@ -84,6 +86,7 @@ class AlarmProvider extends ChangeNotifier {
     _subscription = null;
     _listeningUid = null;
     _alarms.clear();
+    _pendingUpdates.clear();
     _isLoading = false;
     _isSaving = false;
     _errorMessage = null;
@@ -144,11 +147,7 @@ class AlarmProvider extends ChangeNotifier {
         _alarms[index] = updated;
         notifyListeners();
         await _localStorageService.cacheAlarms(uid, _alarms);
-        if (isEnabled) {
-          await _notificationService.scheduleAlarm(updated);
-        } else {
-          await _notificationService.cancelAlarm(alarmId);
-        }
+        await _syncNotificationForAlarm(updated);
       }
       return null;
     } catch (error) {
@@ -177,6 +176,8 @@ class AlarmProvider extends ChangeNotifier {
   }
 
   Future<void> _upsertAlarm(String uid, Alarm alarm) async {
+    _pendingUpdates[alarm.id] = alarm;
+
     final index = _alarms.indexWhere((item) => item.id == alarm.id);
     if (index >= 0) {
       _alarms[index] = alarm;
@@ -187,10 +188,61 @@ class AlarmProvider extends ChangeNotifier {
     notifyListeners();
 
     await _localStorageService.cacheAlarms(uid, _alarms);
-    if (alarm.isEnabled) {
-      await _notificationService.scheduleAlarm(alarm);
-    } else {
-      await _notificationService.cancelAlarm(alarm.id);
+    await _syncNotificationForAlarm(alarm);
+  }
+
+  List<Alarm> _mergeWithPendingUpdates(List<Alarm> remoteAlarms) {
+    final merged = <Alarm>[];
+
+    for (final remote in remoteAlarms) {
+      final pending = _pendingUpdates[remote.id];
+      if (pending == null) {
+        merged.add(remote);
+        continue;
+      }
+
+      if (_isSameAlarm(remote, pending)) {
+        _pendingUpdates.remove(remote.id);
+        merged.add(remote);
+      } else {
+        merged.add(pending);
+      }
+    }
+
+    for (final pending in _pendingUpdates.values) {
+      if (!merged.any((alarm) => alarm.id == pending.id)) {
+        merged.add(pending);
+      }
+    }
+
+    Alarm.sortList(merged);
+    return merged;
+  }
+
+  bool _isSameAlarm(Alarm a, Alarm b) {
+    return a.label == b.label &&
+        a.hour == b.hour &&
+        a.minute == b.minute &&
+        a.isEnabled == b.isEnabled;
+  }
+
+  Future<void> _syncNotifications(List<Alarm> alarms) async {
+    try {
+      await _notificationService.syncAlarms(alarms);
+    } catch (_) {
+      // Notifications should not block alarm sync.
+    }
+  }
+
+  Future<void> _syncNotificationForAlarm(Alarm alarm) async {
+    try {
+      if (alarm.isEnabled) {
+        await _notificationService.scheduleAlarm(alarm);
+      } else {
+        await _notificationService.cancelAlarm(alarm.id);
+      }
+    } catch (_) {
+      // Notifications should not block alarm save/update.
     }
   }
 
@@ -215,6 +267,9 @@ class AlarmProvider extends ChangeNotifier {
     if (error is FirebaseException) {
       if (error.code == 'permission-denied') {
         return 'Permission denied. Check your Firestore security rules.';
+      }
+      if (error.code == 'not-found') {
+        return 'Alarm not found. Please refresh and try again.';
       }
       if (error.code == 'unavailable' ||
           error.code == 'network-request-failed') {

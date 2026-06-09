@@ -52,7 +52,9 @@ class FirebaseService {
   }
 
   Future<void> updateAlarm(String uid, Alarm alarm) {
-    return _alarmsRef(uid).doc(alarm.id).update(alarm.toMapForUpdate());
+    return _alarmsRef(uid)
+        .doc(alarm.id)
+        .set(alarm.toMapForUpdate(), SetOptions(merge: true));
   }
 
   Future<void> toggleAlarm(String uid, String alarmId, bool isEnabled) {
