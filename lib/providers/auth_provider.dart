@@ -1,14 +1,25 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 class AuthProvider extends ChangeNotifier {
-  final Map<String, String> _users = {};
-  String? _currentUserEmail;
+  AuthProvider() {
+    _auth.authStateChanges().listen((user) {
+      _user = user;
+      notifyListeners();
+    });
+  }
 
-  bool get isLoggedIn => _currentUserEmail != null;
-  String? get currentUserEmail => _currentUserEmail;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  String? signUp(String email, String password) {
-    final trimmedEmail = email.trim().toLowerCase();
+  User? _user;
+  bool _isLoading = false;
+
+  bool get isLoggedIn => _user != null;
+  String? get currentUserEmail => _user?.email;
+  bool get isLoading => _isLoading;
+
+  Future<String?> signUp(String email, String password) async {
+    final trimmedEmail = email.trim();
 
     if (trimmedEmail.isEmpty || password.isEmpty) {
       return 'Email and password are required.';
@@ -16,35 +27,74 @@ class AuthProvider extends ChangeNotifier {
     if (password.length < 6) {
       return 'Password must be at least 6 characters.';
     }
-    if (_users.containsKey(trimmedEmail)) {
-      return 'An account with this email already exists.';
-    }
 
-    _users[trimmedEmail] = password;
-    _currentUserEmail = trimmedEmail;
+    _isLoading = true;
     notifyListeners();
-    return null;
+
+    try {
+      await _auth.createUserWithEmailAndPassword(
+        email: trimmedEmail,
+        password: password,
+      );
+      return null;
+    } on FirebaseAuthException catch (e) {
+      return _mapAuthError(e);
+    } catch (_) {
+      return 'Something went wrong. Please try again.';
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 
-  String? login(String email, String password) {
-    final trimmedEmail = email.trim().toLowerCase();
+  Future<String?> login(String email, String password) async {
+    final trimmedEmail = email.trim();
 
     if (trimmedEmail.isEmpty || password.isEmpty) {
       return 'Email and password are required.';
     }
 
-    final storedPassword = _users[trimmedEmail];
-    if (storedPassword == null || storedPassword != password) {
-      return 'Invalid email or password.';
-    }
-
-    _currentUserEmail = trimmedEmail;
+    _isLoading = true;
     notifyListeners();
-    return null;
+
+    try {
+      await _auth.signInWithEmailAndPassword(
+        email: trimmedEmail,
+        password: password,
+      );
+      return null;
+    } on FirebaseAuthException catch (e) {
+      return _mapAuthError(e);
+    } catch (_) {
+      return 'Something went wrong. Please try again.';
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 
-  void logout() {
-    _currentUserEmail = null;
-    notifyListeners();
+  Future<void> logout() async {
+    await _auth.signOut();
+  }
+
+  String _mapAuthError(FirebaseAuthException e) {
+    switch (e.code) {
+      case 'email-already-in-use':
+        return 'An account with this email already exists.';
+      case 'invalid-email':
+        return 'Please enter a valid email address.';
+      case 'user-not-found':
+      case 'wrong-password':
+      case 'invalid-credential':
+        return 'Invalid email or password.';
+      case 'weak-password':
+        return 'Password is too weak. Use at least 6 characters.';
+      case 'too-many-requests':
+        return 'Too many attempts. Please try again later.';
+      case 'network-request-failed':
+        return 'Network error. Check your internet connection.';
+      default:
+        return e.message ?? 'Authentication failed.';
+    }
   }
 }

@@ -26,10 +26,11 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  void _login() {
+  Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final error = context.read<AuthProvider>().login(
+    final auth = context.read<AuthProvider>();
+    final error = await auth.login(
       _emailController.text,
       _passwordController.text,
     );
@@ -43,6 +44,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isLoading = context.watch<AuthProvider>().isLoading;
+
     return Scaffold(
       body: GradientBackground(
         child: SafeArea(
@@ -147,8 +150,16 @@ class _LoginScreenState extends State<LoginScreen> {
                           SizedBox(
                             width: double.infinity,
                             child: ElevatedButton(
-                              onPressed: _login,
-                              child: const Text('Sign In'),
+                              onPressed: isLoading ? null : _login,
+                              child: isLoading
+                                  ? const SizedBox(
+                                      height: 20,
+                                      width: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Text('Sign In'),
                             ),
                           ),
                         ],

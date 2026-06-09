@@ -1,0 +1,76 @@
+{
+  "project_info": {
+    "project_number": "711906496064",
+    "project_id": "map-49d59",
+    "storage_bucket": "map-49d59.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:711906496064:android:507da295f35a4dd2a599a5",
+        "android_client_info": {
+          "package_name": "com.example.alarm_clock_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCfWAHdAOrmF2dDNXTA5so-4ci1u43nF8I"
+        },
+        {
+          "current_key": "AIzaSyBpi2-6LP5GZhN1KKDKuObbZjt8fpPs5jI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:711906496064:android:00f6b0a00472ae56a599a5",
+        "android_client_info": {
+          "package_name": "com.raj.flutter_application_1"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCfWAHdAOrmF2dDNXTA5so-4ci1u43nF8I"
+        },
+        {
+          "current_key": "AIzaSyBpi2-6LP5GZhN1KKDKuObbZjt8fpPs5jI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:711906496064:android:2c568685f0ca182ba599a5",
+        "android_client_info": {
+          "package_name": "com.raj.flutterapplication1"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCfWAHdAOrmF2dDNXTA5so-4ci1u43nF8I"
+        },
+        {
+          "current_key": "AIzaSyBpi2-6LP5GZhN1KKDKuObbZjt8fpPs5jI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

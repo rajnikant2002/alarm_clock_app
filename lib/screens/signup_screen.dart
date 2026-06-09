@@ -28,13 +28,16 @@ class _SignupScreenState extends State<SignupScreen> {
     super.dispose();
   }
 
-  void _signUp() {
+  Future<void> _signUp() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final error = context.read<AuthProvider>().signUp(
+    final auth = context.read<AuthProvider>();
+    final error = await auth.signUp(
       _emailController.text,
       _passwordController.text,
     );
+
+    if (!mounted) return;
 
     if (error != null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -61,6 +64,8 @@ class _SignupScreenState extends State<SignupScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isLoading = context.watch<AuthProvider>().isLoading;
+
     return Scaffold(
       body: GradientBackground(
         child: SafeArea(
@@ -181,8 +186,16 @@ class _SignupScreenState extends State<SignupScreen> {
                         ),
                         const SizedBox(height: 32),
                         ElevatedButton(
-                          onPressed: _signUp,
-                          child: const Text('Create Account'),
+                          onPressed: isLoading ? null : _signUp,
+                          child: isLoading
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Text('Create Account'),
                         ),
                       ],
                     ),
