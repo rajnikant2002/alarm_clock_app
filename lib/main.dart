@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'screens/home_screen.dart';
+import 'package:provider/provider.dart';
+import 'providers/alarm_provider.dart';
 
 void main() {
   runApp(const AlarmClockApp());
@@ -10,14 +12,12 @@ class AlarmClockApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'Alarm Clock',
-      theme: ThemeData(
-        primarySwatch: Colors.indigo,
-        useMaterial3: true,
+    return ChangeNotifierProvider(
+      create: (_) => AlarmProvider(),
+      child: MaterialApp(
+        debugShowCheckedModeBanner: false,
+        home: const HomeScreen(),
       ),
-      home: const HomeScreen(),
     );
   }
 }
