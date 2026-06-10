@@ -1,4 +1,8 @@
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 
@@ -9,6 +13,10 @@ class NotificationService {
 
   static final NotificationService instance = NotificationService._();
 
+  static const _channelId = 'alarms_channel';
+  static const _channelName = 'Alarms';
+  static const _channelDescription = 'Scheduled alarm notifications';
+
   final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();
   bool _initialized = false;
@@ -16,9 +24,11 @@ class NotificationService {
   Future<void> initialize() async {
     if (_initialized) return;
 
-    tz.initializeTimeZones();
+    await _configureLocalTimeZone();
 
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidSettings = AndroidInitializationSettings(
+      '@mipmap/ic_launcher',
+    );
     const iosSettings = DarwinInitializationSettings(
       requestAlertPermission: true,
       requestBadgePermission: true,
@@ -32,12 +42,42 @@ class NotificationService {
       ),
     );
 
-    await _plugin
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
-        ?.requestNotificationsPermission();
+    await _setupAndroid();
 
     _initialized = true;
+  }
+
+  Future<void> _configureLocalTimeZone() async {
+    tz.initializeTimeZones();
+    if (kIsWeb) return;
+
+    try {
+      if (Platform.isLinux || Platform.isWindows) return;
+      final timeZoneInfo = await FlutterTimezone.getLocalTimezone();
+      tz.setLocalLocation(tz.getLocation(timeZoneInfo.identifier));
+    } catch (_) {
+      tz.setLocalLocation(tz.UTC);
+    }
+  }
+
+  Future<void> _setupAndroid() async {
+    if (kIsWeb || !Platform.isAndroid) return;
+
+    final androidPlugin = _plugin.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
+    if (androidPlugin == null) return;
+
+    const channel = AndroidNotificationChannel(
+      _channelId,
+      _channelName,
+      description: _channelDescription,
+      importance: Importance.max,
+      playSound: true,
+    );
+
+    await androidPlugin.createNotificationChannel(channel);
+    await androidPlugin.requestNotificationsPermission();
+    await androidPlugin.requestExactAlarmsPermission();
   }
 
   Future<void> syncAlarms(List<Alarm> alarms) async {
@@ -50,6 +90,8 @@ class NotificationService {
   }
 
   Future<void> scheduleAlarm(Alarm alarm) async {
+    if (!_initialized) await initialize();
+
     await cancelAlarm(alarm.id);
 
     final now = tz.TZDateTime.now(tz.local);
@@ -75,9 +117,9 @@ class NotificationService {
       matchDateTimeComponents: DateTimeComponents.time,
       notificationDetails: const NotificationDetails(
         android: AndroidNotificationDetails(
-          'alarms_channel',
-          'Alarms',
-          channelDescription: 'Scheduled alarm notifications',
+          _channelId,
+          _channelName,
+          channelDescription: _channelDescription,
           importance: Importance.max,
           priority: Priority.high,
           playSound: true,
